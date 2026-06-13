@@ -48,6 +48,10 @@ public class Exercise implements Writable {
      *          and the rest of letters in the lower case
      */
     public String capitalizationForFirstLetter(String exerciseName) {
+        if (exerciseName == null || exerciseName.trim().isEmpty()) {
+            return "Unknown Exercise";
+        }
+
         return exerciseName.substring(0, 1).toUpperCase() + exerciseName.substring(1).toLowerCase();
     }
 
@@ -97,7 +101,7 @@ public class Exercise implements Writable {
     public JSONObject toJson() {
         JSONObject json = new JSONObject();
         json.put("exercise name", this.exerciseName);
-        json.put("muscle Type", this.muscleType);
+        json.put("muscle Type", this.muscleType.name());
         json.put("weight", this.weightLifted);
         json.put("number of Sets", this.numSets);
         json.put("number of Repetitions", this.numReps);
@@ -105,4 +109,12 @@ public class Exercise implements Writable {
         return json;
     }
 
+    /**
+     * Calculates the total volume lifted for this specific exercise entry.
+     * Formula: Volume = Sets * Reps * Weight
+     * @return total weight lifted in kg
+     */
+    public int getTotalVolume() {
+        return this.numSets * this.numReps * this.weightLifted;
+    }
 }

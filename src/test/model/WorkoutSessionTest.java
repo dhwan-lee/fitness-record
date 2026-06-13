@@ -69,20 +69,75 @@ public class WorkoutSessionTest {
     void testToJson() {
         session.addExercise(ex1);
         session.addExercise(ex2);
-        var json = session.toJson();
+        
+        // CHANGE: Explicitly use JSONObject instead of var
+        org.json.JSONObject json = session.toJson();
 
         assertEquals("2025/11/06", json.getString("date"));
-        var jsonExercises = json.getJSONArray("exercises");
+        
+        // CHANGE: Explicitly use JSONArray instead of var
+        org.json.JSONArray jsonExercises = json.getJSONArray("exercises");
         assertEquals(2, jsonExercises.length());
 
         // Check first exercise
-        var jsonEx1 = jsonExercises.getJSONObject(0);
+        // CHANGE: Explicitly use JSONObject instead of var
+        org.json.JSONObject jsonEx1 = jsonExercises.getJSONObject(0);
         assertEquals("Bench press", jsonEx1.getString("exercise name"));
         assertEquals(135, jsonEx1.getInt("weight"));
 
         // Check second exercise
-        var jsonEx2 = jsonExercises.getJSONObject(1);
+        // CHANGE: Explicitly use JSONObject instead of var
+        org.json.JSONObject jsonEx2 = jsonExercises.getJSONObject(1);
         assertEquals("Squat", jsonEx2.getString("exercise name"));
         assertEquals(225, jsonEx2.getInt("weight"));
+    }
+
+    @Test
+    void testGetSessionTotalVolumeEmptySession() {
+        // A fresh session with zero exercises logged yet should evaluate to 0 volume
+        assertEquals(0, session.getSessionTotalVolume());
+    }
+
+    @Test
+    void testGetSessionTotalVolumeWithMultipleExercises() {
+        // ex1 volume: 135kg * 3 sets * 5 reps = 2025
+        session.addExercise(ex1);
+        assertEquals(2025, session.getSessionTotalVolume());
+
+        // ex2 volume: 225kg * 3 sets * 5 reps = 3375
+        session.addExercise(ex2);
+        
+        // Combined total session volume: 2025 + 3375 = 5400
+        assertEquals(5400, session.getSessionTotalVolume());
+    }
+
+    @Test
+    void testGetSessionTotalVolumeAfterRemovingExercise() {
+        session.addExercise(ex1);
+        session.addExercise(ex2);
+        assertEquals(5400, session.getSessionTotalVolume());
+
+        // Remove the bench press entry (2025 volume drops)
+        assertTrue(session.removeExercise("Bench Press"));
+        
+        // Only squat remains -> 3375 total volume left
+        assertEquals(3375, session.getSessionTotalVolume());
+    }
+
+    @Test
+    void testDefensiveConstructorPreventsLeakingReference() {
+        java.util.List<Exercise> externalList = new java.util.ArrayList<>();
+        externalList.add(ex1);
+
+        // Instantiate using your safety defensive routing constructor
+        WorkoutSession secureSession = new WorkoutSession("2026/06/13", externalList);
+        assertEquals(1, secureSession.getExercises().size());
+
+        // Alter the external array structural wrapper layer afterwards
+        externalList.clear();
+
+        // The internal data inside your domain model should stay secure and unchanged!
+        assertEquals(1, secureSession.getExercises().size());
+        assertEquals(ex1, secureSession.getExercises().get(0));
     }
 }

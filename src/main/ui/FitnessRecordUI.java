@@ -56,40 +56,49 @@ public class FitnessRecordUI extends JFrame {
      * EFFECTS: creates the main application window and initialize components
      */
     public FitnessRecordUI() {
-        // Initialize the LogBook. This is the Model
-        // It automatically knows where to save/load from.
+        // initialize the LogBook. This is the Model
+        // it automatically knows where to save/load from.
         logbook = new Logbook("./data/fitness_log.json");
 
         parentFrame = new JFrame("Fitness Record");
-        parentFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        parentFrame.setSize(WIDTH, HEIGHT);
-        parentFrame.setLayout(new BorderLayout());
-        
-        // Confirm Exit code
-        JRootPane rootPane = parentFrame.getRootPane();
-        InputMap inputMap = rootPane.getInputMap(JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT);
-        ActionMap actionMap = rootPane.getActionMap();
-        KeyStroke escapeKey = KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0);
-        
-        inputMap.put(escapeKey, "CONFIRM_EXIT");
-        actionMap.put("CONFIRM_EXIT", new AbstractAction() {
+        parentFrame.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
+        parentFrame.addWindowListener(new WindowAdapter() {
             @Override
-            public void actionPerformed(ActionEvent e) {
-                // call a new confirmation method
+            public void windowClosing(WindowEvent e) {
                 confirmExit();
             }
         });
 
-        // Attempt to load existing logs on startup
+        parentFrame.setSize(WIDTH, HEIGHT);
+        parentFrame.setLayout(new BorderLayout());
+
         try {
             logbook.loadLogBook();
         } catch (IOException e) {
             System.out.println("No existing log file found. Starting fresh.");
         }
 
+        JRootPane rootPane = parentFrame.getRootPane();
+    
+        // get the input map for when the window or any of its children are focused
+        InputMap inputMap = rootPane.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW);
+        ActionMap actionMap = rootPane.getActionMap();
+
+        // map the physical ESCAPE key stroke to an action identifier string
+        KeyStroke escapeKey = KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0);
+        inputMap.put(escapeKey, "CONFIRM_EXIT");
+
+        // define what action happens when that identifier string is triggered
+        actionMap.put("CONFIRM_EXIT", new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                // reuses your existing safe custom exit dialogue sequence
+                confirmExit();
+            }
+        });
+        
         parentFrame.add(new ImagePanel(IMAGE_STORE), BorderLayout.CENTER);
         addButtonPanel();
-
         centreOnScreen();
         parentFrame.setVisible(true);
     }
@@ -99,36 +108,120 @@ public class FitnessRecordUI extends JFrame {
      * Handles user's "Yes" (Enter), "No", or ESC key presses.
      */
     private void confirmExit() {
-        String message = "Just double check! would you like to close this application?";
-        String title = "Confirm Exit";
+        // If user clicks "No", presses ESC, or hits Enter (on default "No")
+        // the dialog simply closes and nothing happens
+        showCustomConfirmExit();
+    }
 
-        // define our custom button text
-        Object[] options = {"Yes", "No"};
+    /**
+     * Creates and displays a custom, foolproof confirmation dialog.
+     * This method builds a JDialog from scratch to ensure keyboard
+     * navigation (Tab, Arrows, Enter, ESC) works perfectly.
+     */
+    private void showCustomConfirmExit() {
+        // create the modal dialog
+        JDialog dialog = new JDialog(parentFrame, "Confirm Exit", true); // 'true' makes it modal
+        dialog.setSize(350, 150);
+        dialog.setLayout(new BorderLayout(10, 10));
+        dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
 
-        // This creates the "Yes/No" pop-uo
-        int result = JOptionPane.showOptionDialog(
-            parentFrame,                            // center it on the main window
-            message,                                // the custom message above
-            title,                                  // the window title
-            JOptionPane.YES_NO_CANCEL_OPTION,       // the "Yes" and "No" buttons
-            JOptionPane.QUESTION_MESSAGE,           // shows a question mark icon
-            null,                              // icon (null for default)
-            options,                                // use our custom button array ("Yes", "No")
-            options[0]                              // The default button to be highlighted ("Yes")
-        );
+        // add the message
+        JLabel messageLabel = new JLabel("Just double check! would you like to close this application?");
+        messageLabel.setHorizontalAlignment(SwingConstants.CENTER);
+        messageLabel.setBorder(new EmptyBorder(20, 20, 10, 20)); // Add padding
+        dialog.add(messageLabel, BorderLayout.CENTER);
 
-        // check which button was pressed
-        // YES_OPTION == 0, NO_OPTION == 1
-        if (result == JOptionPane.YES_OPTION) {
-            // user clicked "Yes" or pressed ENTER
+        //  reate the buttons
+        JButton yesButton = new JButton("Yes");
+        JButton noButton = new JButton("No");
+
+        // create the button panel
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 0));
+        buttonPanel.setBorder(new EmptyBorder(0, 0, 20, 0)); // Bottom padding
+        buttonPanel.add(yesButton);
+        buttonPanel.add(noButton);
+        dialog.add(buttonPanel, BorderLayout.SOUTH);
+
+        // add Action Listeners
+        yesButton.addActionListener(e -> {
             PrintEventLog.printEventLog();
             System.exit(0);
-        }
+        });
+        
+        noButton.addActionListener(e -> {
+            dialog.dispose();
+        });
 
-        // If user clicks "No" (result == 1)
-        // or presses ESC/ clicks the [x] button (result == -1)
-        // the dialog simply closes and nothing happens
+        dialog.addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowOpened(WindowEvent e) {
+                yesButton.requestFocusInWindow();
+            }
+        });
+
+        // Add the ESC key binding *to this dialog
+        JRootPane rootPane = dialog.getRootPane();
+        InputMap inputMap = rootPane.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW);
+        ActionMap actionMap = rootPane.getActionMap();
+
+        // Arrow Key Navigation: Move focus to "No"
+        inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_RIGHT, 0), "FOCUS_NO");
+        actionMap.put("FOCUS_NO", new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                dialog.getRootPane().setDefaultButton(noButton);
+                noButton.requestFocusInWindow();
+            }
+        });
+
+        // Arrow Key Navigation: Move focus to "Yes"
+        inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_LEFT, 0), "FOCUS_YES");
+        actionMap.put("FOCUS_YES", new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                dialog.getRootPane().setDefaultButton(yesButton);
+                yesButton.requestFocusInWindow();
+            }
+        });
+
+        // 🚀 THE FIX FOR TERMINATION: Force Enter key to select the highlighted button
+        inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0), "TRIGGER_ENTER");
+        actionMap.put("TRIGGER_ENTER", new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if (yesButton.isFocusOwner()) {
+                    yesButton.doClick(); // Simulates clicking 'Yes' -> terminates app
+                } else if (noButton.isFocusOwner()) {
+                    noButton.doClick();  // Simulates clicking 'No' -> closes popup
+                }
+            }
+        });
+        // =========================================================================
+
+        // map the ESC key binding to close the dialog
+        KeyStroke escapeKey = KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0);
+        inputMap.put(escapeKey, "CLOSE_DIALOG");
+        actionMap.put("CLOSE_DIALOG", new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                dialog.dispose();
+            }
+        });
+
+        // request initial starting focus on the "no" button when opened
+        dialog.addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowOpened(WindowEvent e) {
+                dialog.getRootPane().setDefaultButton(noButton);
+                noButton.requestFocusInWindow();
+            }
+        });
+
+        // Show the dialog
+        dialog.setLocationRelativeTo(parentFrame); // Center it
+        dialog.setVisible(true);
     }
+
     /*
      * MODIFIES: this
      * EFFECTS: creates and adds the option button panel to the main frame
@@ -145,10 +238,7 @@ public class FitnessRecordUI extends JFrame {
                                             e -> displayAllLogs()));
         buttonPanel.add(createButton("Save logs to file", e -> saveLogsToFile()));
         buttonPanel.add(createButton("Load logs from file", e -> loadLogsFromFile()));
-        buttonPanel.add(createButton("Exit", e -> {
-            PrintEventLog.printEventLog();
-            System.exit(0);
-        }));
+        buttonPanel.add(createButton("Exit", e -> confirmExit()));
     
         parentFrame.add(buttonPanel, BorderLayout.SOUTH);
     }
@@ -185,7 +275,7 @@ public class FitnessRecordUI extends JFrame {
      */
     private void addExercise() {
         createDisplayLog();
-        JDialog dialog = createDialog("Add Exercise", 400, 320);
+        JDialog dialog = createDialog(parentFrame, "Add Exercise", 400, 320);
         
         JPanel addExercisePanel = new JPanel();
         // use BorderLayout for the main panel (10px horizontal gap)
@@ -203,31 +293,34 @@ public class FitnessRecordUI extends JFrame {
      * REQUIRES: title != null, w > 0, h > 0
      * EFFECTS: creates a new window with the specified title, width, and height
      */
-    private JDialog createDialog(String title, int w, int h) {
-        JDialog dialog = new JDialog(parentFrame, title, true);
+    private JDialog createDialog(Window owner, String title, int w, int h) {
+        JDialog dialog;
+        if (owner instanceof JFrame) {
+            dialog = new JDialog((JFrame) owner, title, true);
+        } else {
+            dialog = new JDialog((JDialog) owner, title, true);
+        }
+
         dialog.setSize(w, h);
-        dialog.setLocationRelativeTo(parentFrame);
+        dialog.setLocationRelativeTo(owner);
         dialog.setLayout(new BorderLayout());
         dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
 
-        // 1. Get the dialog's root pane (its main content area)
+        // get the dialog's root pane (its main content area)
         JRootPane rootPane = dialog.getRootPane();
-        
-        // 2. Use the more robust "WHEN_ANCESTOR" binding
+        // use the more robust "WHEN_ANCESTOR" binding
         InputMap inputMap = rootPane.getInputMap(JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT);
         ActionMap actionMap = rootPane.getActionMap();
-
-        // 3. Define the ESC key
+        // define the ESC key
         KeyStroke escapeKey = KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0);
 
-        // 4. Map the ESC key to an "action name"
+        // map the ESC key to an "action name"
         inputMap.put(escapeKey, "CLOSE_DIALOG");
 
-        // 5. Map the "action name" to an actual action
+        // map the "action name" to an actual action
         actionMap.put("CLOSE_DIALOG", new AbstractAction() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                // This just closes the pop-up, not the whole app
                 dialog.dispose();
             }
         });
@@ -322,13 +415,16 @@ public class FitnessRecordUI extends JFrame {
      * EFFECTS: appends exercise to the log display area
      */
     private void displayLog(Exercise e, String date, String title) {
+        int volume = e.getTotalVolume();
+
         logDisplay.append(String.format(
-                "\n" + title + ": %s\n Muscle: %s\n Weight: %d kg\n Reps: %d\n Sets: %d\n Date: %s\n", 
+                "\n" + title + ": %s\n Muscle: %s\n Weight: %d kg\n Reps: %d\n Sets: %d\n Volume: %d kg\n Date: %s\n", 
                 e.getExerciseName(), 
                 e.getMuscleType(), 
                 e.getWeightLifted(), 
                 e.getNumReps(), 
                 e.getNumSets(), 
+                volume,
                 date
             )
         );
@@ -447,41 +543,53 @@ public class FitnessRecordUI extends JFrame {
     }
 
     /*
-     * REQUIRES: addExercisePanel != null
-     * MODIFIES: this
-     * EFFECTS: initializes and adds input field for date to the panel
-     */
-    private void getDate(JPanel addExercisePanel) {
-        yearField = new JTextField("YYYY");
-        monthField = new JTextField("MM");
-        dayField = new JTextField("DD");
-
-        JPanel datePanel = new JPanel();
-        datePanel.setLayout(new GridLayout(1, 3));
-        datePanel.add(yearField);
-        datePanel.add(monthField);
-        datePanel.add(dayField);
-        addExercisePanel.add(datePanel);
-    }
-
-    /*
      * MODIFIES: this
      * EFFECTS: creates a new window for user to remove a specific exercise log
      */
     private void removeExercise() {
         createDisplayLog();
-        JDialog dialog = createDialog("Remove Exercise", 300, 150);
+        JDialog dialog = createDialog(parentFrame, "Remove Exercise", 400, 170);
 
-        JPanel removeExercisePanel = new JPanel();
-        removeExercisePanel.setLayout(new GridLayout(2, 2));
-        removeExercisePanel.setBorder(new EmptyBorder(10, 5, 10, 5));
+        // use BorderLayout for the main panel
+        JPanel removeExercisePanel = new JPanel(new BorderLayout(10, 0));
 
-        removeExericseFormat(removeExercisePanel);
+        // call the helper to build the panel
+        removeExerciseFormat(removeExercisePanel);
 
         dialog.add(removeExercisePanel, BorderLayout.CENTER);
-
         dialog.add(exerciseButtonPanel(dialog, "removeEx"), BorderLayout.SOUTH);
         dialog.setVisible(true);
+    }
+
+    /*
+     * REQUIRES: removeExercisePanel != null (must have BorderLayout)
+     * MODIFIES: this, removeExercisePanel
+     * EFFECTS: adds input fields for removing an exercise (exercise name, date)
+     */
+    private void removeExerciseFormat(JPanel removeExercisePanel) {
+        // creates label panel (WEST)
+        JPanel labelPanel = new JPanel(new GridLayout(2, 1, 0, 10));
+        labelPanel.setBorder(new EmptyBorder(10, 5, 10, 5));
+
+        JLabel nameLabel = new JLabel("Exercise Name");
+        nameLabel.setHorizontalAlignment(SwingConstants.RIGHT);
+        labelPanel.add(nameLabel);
+
+        JLabel dateLabel = new JLabel("Date yyyy/mm/dd");
+        dateLabel.setHorizontalAlignment(SwingConstants.RIGHT);
+        labelPanel.add(dateLabel);
+
+        // creates field panel(CENTER)
+        JPanel fieldPanel = new JPanel(new GridLayout(2, 1, 0, 10));
+        fieldPanel.setBorder(new EmptyBorder(10, 5, 10, 10));
+
+        nameField = new JTextField();
+        fieldPanel.add(nameField);
+        fieldPanel.add(createDatePanel());
+
+        // Adds Panels to the main dialog panel
+        removeExercisePanel.add(labelPanel, BorderLayout.WEST);
+        removeExercisePanel.add(fieldPanel, BorderLayout.CENTER);
     }
 
     /*
@@ -530,31 +638,14 @@ public class FitnessRecordUI extends JFrame {
     }
 
     /*
-     * REQUIRES: removeExercisePanel != null
-     * MODIFIES: this
-     * EFFECTS: adds input fields for removing an exercise (exercise name, date)
-     */
-    private void removeExericseFormat(JPanel removeExercisePanel) {
-        removeExercisePanel.add(new JLabel(labels[0]));
-        nameField = new JTextField();
-        removeExercisePanel.add(nameField);
-
-        removeExercisePanel.add(new JLabel(labels[5]));
-        getDate(removeExercisePanel);
-    }
-
-    /*
      * MODIFIES: this
      * EFFECTS: find exercise log for updating. This just opens the "find" dialog.
      */
     private void updateLog() {
         createDisplayLog();
-        JDialog dialog = createDialog("Update Exercise: Step 1 (Find)", 300, 150);
+        JDialog dialog = createDialog(parentFrame, "Update Exercise: (Find)", 400, 170);
         
-        JPanel updateExercisePanel = new JPanel();
-        updateExercisePanel.setLayout(new GridLayout(2, 2));
-        updateExercisePanel.setBorder(new EmptyBorder(10, 5, 10, 5));
-
+        JPanel updateExercisePanel = new JPanel(new BorderLayout(10, 0));
         updateExericseFormat(updateExercisePanel);
 
         dialog.add(updateExercisePanel, BorderLayout.CENTER);
@@ -568,12 +659,29 @@ public class FitnessRecordUI extends JFrame {
      * EFFECTS: adds input field for finding an exercise log to update
      */
     private void updateExericseFormat(JPanel updateExercisePanel) {
-        updateExercisePanel.add(new JLabel(labels[0]));
-        nameField = new JTextField();
-        updateExercisePanel.add(nameField);
+        // creates label panel (WEST)
+        JPanel labelPanel = new JPanel(new GridLayout(2, 1, 0, 10));
+        labelPanel.setBorder(new EmptyBorder(10, 5, 10, 5));
 
-        updateExercisePanel.add(new JLabel(labels[5]));
-        getDate(updateExercisePanel);
+        JLabel nameLabel = new JLabel("Exercise Name");
+        nameLabel.setHorizontalAlignment(SwingConstants.RIGHT);
+        labelPanel.add(nameLabel);
+
+        JLabel dateLabel = new JLabel("Date yyyy/mm/dd");
+        dateLabel.setHorizontalAlignment(SwingConstants.RIGHT);
+        labelPanel.add(dateLabel);
+
+        // creates field panel (CENTER)
+        JPanel fieldPanel = new JPanel(new GridLayout(2, 1, 0, 10));
+        fieldPanel.setBorder(new EmptyBorder(10, 5, 10, 10));
+
+        nameField = new JTextField();
+        fieldPanel.add(nameField);
+        fieldPanel.add(createDatePanel());
+
+        // adds panels to the main dialog panel
+        updateExercisePanel.add(labelPanel, BorderLayout.WEST);
+        updateExercisePanel.add(fieldPanel, BorderLayout.CENTER);
     }
 
     /*
@@ -628,7 +736,7 @@ public class FitnessRecordUI extends JFrame {
      * EFFECTS: open a new window for updating the found exercise's info
      */
     private void updateOptions(WorkoutSession session, Exercise exercise) {
-        JDialog dialog = createDialog("Update Exercise: Step 2 (Edit)", 400, 400);
+        JDialog dialog = createDialog(parentFrame, "Update Exercise: Step 2 (Edit)", 400, 400);
 
         JPanel updateExercisePanel = new JPanel();
         updateExercisePanel.setLayout(new GridLayout(0, 1));
@@ -645,7 +753,7 @@ public class FitnessRecordUI extends JFrame {
     
         updateExercisePanel.add(datePanel);
 
-        updateFieldComboBoxEventHandler(updateFieldComboBox, dialog);
+        updateFieldComboBoxEventHandler(updateFieldComboBox, dialog, updateExercisePanel);
 
         // sets up the buttons
         JPanel buttonPanel = new JPanel();
@@ -668,7 +776,7 @@ public class FitnessRecordUI extends JFrame {
      * MODIFIES: this
      * EFFECTS: adds event handler to the combo box to visualize the input field by the option users choose
      */
-    private void updateFieldComboBoxEventHandler(JComboBox<String> updateFieldComboBox, JDialog dialog) {
+    private void updateFieldComboBoxEventHandler(JComboBox<String> updateFieldComboBox, JDialog dialog, JPanel updateExercisePanel) {
         updateFieldComboBox.addActionListener(e -> {
             String selected = (String) updateFieldComboBox.getSelectedItem();
             nameField.setVisible("Exercise Name".equals(selected));
@@ -680,6 +788,8 @@ public class FitnessRecordUI extends JFrame {
             yearField.setVisible(isDate);
             monthField.setVisible(isDate);
             dayField.setVisible(isDate);
+            updateExercisePanel.revalidate();
+            updateExercisePanel.repaint();
             dialog.pack();
         });
     }
@@ -709,7 +819,15 @@ public class FitnessRecordUI extends JFrame {
                                             yearField.getText(), monthField.getText(), dayField.getText());
                     session.setDate(updatedDate);
                 }
+                // Show the success confirmation popup
                 JOptionPane.showMessageDialog(dialog, "Exercise updated successfully!");
+                
+                // Close edit dialog immediately so it doesn't linger on screen
+                dialog.dispose();
+                
+                // Re-run the main log assembly method to clear the old text area
+                // and re-render the logs with your newly updated values!
+                displayAllLogs();
             } catch (Exception ex) {
                 JOptionPane.showMessageDialog(dialog, "Invalid input. Please check your values!");
             }
@@ -769,12 +887,22 @@ public class FitnessRecordUI extends JFrame {
         if (sessions.isEmpty()) {
             logDisplay.setText("No exercises have been logged yet.");
         } else {
+            // This is your updated loop that calculates and displays the session volume
             for (WorkoutSession session : sessions) {
-                // adds a header for the date
-                logDisplay.append("\n===============================\n");
-                logDisplay.append("    DATE: " + session.getDate() + "\n");
-                logDisplay.append("===============================\n");
+                
+                // 1. Calculate aggregate session volume manually
+                int totalSessionVolume = 0;
+                for (Exercise ex : session.getExercises()) {
+                    totalSessionVolume += ex.getTotalVolume();
+                }
 
+                // 2. Add the polished header displaying BOTH the Date and the Total Session Volume
+                logDisplay.append("\n===================================\n");
+                logDisplay.append("    DATE: " + session.getDate() + "\n");
+                logDisplay.append("    TOTAL VOLUME: " + totalSessionVolume + " kg\n");
+                logDisplay.append("===================================\n");
+
+                // 3. Print out each individual exercise inside this session
                 List<Exercise> exercises = session.getExercises();
                 if (exercises.isEmpty()) {
                     logDisplay.append("  (Rest Day / No exercises logged)\n");
@@ -819,7 +947,7 @@ public class FitnessRecordUI extends JFrame {
      */
     private void filteredLog() {
         createDisplayLog();
-        JDialog dialog = createDialog("Filter log", 400, 75);
+        JDialog dialog = createDialog(parentFrame, "Filter log", 400, 75);
 
         JPanel buttonPanel = new JPanel();
         JButton dateButton = new JButton("Filtered by Date");
@@ -828,8 +956,8 @@ public class FitnessRecordUI extends JFrame {
         buttonPanel.add(dateButton);
         buttonPanel.add(exerciseMuscleTypeButton);
         
-        filteredByDateEventHandler(dateButton);
-        filteredByMuscleTypeEventHandler(exerciseMuscleTypeButton);
+        filteredByDateEventHandler(dateButton, dialog);
+        filteredByMuscleTypeEventHandler(exerciseMuscleTypeButton, dialog);
 
         dialog.add(buttonPanel);
 
@@ -843,16 +971,16 @@ public class FitnessRecordUI extends JFrame {
      * MODIFIES: this
      * EFFECTS: pops up a window to filter exercises by date
      */
-    private void filteredByDateEventHandler(JButton dateButton) {
+    private void filteredByDateEventHandler(JButton dateButton, JDialog parentDialog) {
         dateButton.addActionListener(e -> {
-            JDialog subDialog = createDialog("Filtered By Date", 400, 150);
         
-            JPanel datePanel = new JPanel();
-            getDate(datePanel);
+            JDialog subDialog = new JDialog(parentDialog, "Filtered By Date", true); 
+            subDialog.setSize(400, 150);
 
+            JPanel datePanel = createDatePanel();
             JButton filterButton = new JButton("filter");
             JButton cancelButton = createCancelButton(subDialog, "cancel");
-
+            
             filteredByDateEventHandlerHelper(filterButton, subDialog);
 
             JPanel buttonPanel = new JPanel();
@@ -863,9 +991,9 @@ public class FitnessRecordUI extends JFrame {
             subDialog.add(buttonPanel, BorderLayout.SOUTH);
 
             subDialog.pack();
+            subDialog.setLocationRelativeTo(null);
             subDialog.setVisible(true);
         });
-
     }
 
     /*
@@ -895,9 +1023,23 @@ public class FitnessRecordUI extends JFrame {
      * MODIFIES: this
      * EFFECTS: pops up a window to filter exercises by muscle type
      */
-    private void filteredByMuscleTypeEventHandler(JButton muscleTypeButton) {
+    private void filteredByMuscleTypeEventHandler(JButton muscleTypeButton, JDialog parentDialog) {
         muscleTypeButton.addActionListener(e -> {
-            JDialog subDialog = createDialog("Filtered By Muscle Type", 400, 150);
+            
+            JDialog subDialog = new JDialog(parentDialog, "Filtered By Muscle Type", true); 
+            subDialog.setSize(400, 150);
+            subDialog.setLocationRelativeTo(parentDialog); // Center it over the first popup
+            subDialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
+            
+            // Setup ESC key close binding for this sub-dialog
+            JRootPane rootPane = subDialog.getRootPane();
+            InputMap inputMap = rootPane.getInputMap(JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT);
+            ActionMap actionMap = rootPane.getActionMap();
+            inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0), "CLOSE_DIALOG");
+            actionMap.put("CLOSE_DIALOG", new AbstractAction() {
+                @Override
+                public void actionPerformed(ActionEvent e) { subDialog.dispose(); }
+            });
 
             JPanel muscleTypePanel = new JPanel();
             muscleTypePanel.setLayout(new GridLayout(2, 1));

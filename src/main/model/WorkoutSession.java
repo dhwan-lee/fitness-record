@@ -18,6 +18,12 @@ public class WorkoutSession implements Writable {
         EventLog.getInstance().logEvent(new Event("Started new workout session for date: " + date));
     }
 
+    public WorkoutSession(String date, List<Exercise> exercises) {
+        this.date = date;
+        // Create a brand new list so nobody outside can tamper with our internal data
+        this.exercises = new ArrayList<>(exercises); 
+    }
+
     public void addExercise(Exercise exercise) {
         this.exercises.add(exercise);
 
@@ -68,5 +74,18 @@ public class WorkoutSession implements Writable {
         json.put("exercises", jsonArray);
 
         return json;
+    }
+
+    /**
+     * Calculates the sum of the total volume lifted across all exercises 
+     * in this specific workout session.
+     * @return total session volume in kg
+     */
+    public int getSessionTotalVolume() {
+        int totalVolume = 0;
+        for (Exercise e : exercises) {
+            totalVolume += e.getTotalVolume(); // Calls your method!
+        }
+        return totalVolume;
     }
 }
