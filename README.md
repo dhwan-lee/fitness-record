@@ -1,26 +1,49 @@
-# My Personal Project: Fitness Record
+# 🏋️‍♂️ Fitness Tracker Application
 
-## Record Workouts, Track Progress, Stay Fit
+A robust, desktop-based fitness logging and analytics application designed for tracking strength training and cardio progression. This project utilizes an object-oriented domain hierarchy to compute workout volume over time, ensuring data integrity through strict encapsulation and automated unit testing.
 
-- **What will the application do?**
+---
 
-> ***Fitness Record*** is an application that helps users plan and track their workouts. Users can save exercises, log the weights they use, and monitor their progress over time. Features like workout logs, and progress tracking empower users to stay motivated and push toward their fitness goals.
+## 🛠️ Features
 
-- **Who will use it?**
+* **Workout Session Logging:** Group individual exercises chronologically by date.
+* **Volume Analytics:** Automatically calculates total structural volume ($Volume = \text{Sets} \times \text{Reps} \times \text{Weight}$) for individual exercises as well as aggregate totals for entire workout sessions to track progressive overload.
+* **Granular Filtering:** Query historical data rapidly by matching calendar dates or specific targeted muscle groups (`CHEST`, `BACK`, `LEGS`, etc.).
+* **Data Persistence:** Save and load tracking data locally using a structured JSON serialization framework.
+* **Foolproof Keyboard-Driven UI:** A polished Java Swing interface featuring complete modal window chaining, defensive placeholder text management, and instant keyboard navigation (Arrows for selection, `Enter` to confirm, and `ESC` to dismiss dialogs).
 
-> ***Fitness Record*** is for users who want to track their workout progress, systematically increase weights over time, view all the workouts they saved and plan daily workout routines.
+---
 
-- **Why is this project of interest to you?**
+## 🏗️ Architectural Design & Patterns
 
-> In the gym, I observed people taking notes after every set, recording how much weight they lifted to ensure they gradually increased their load. This inspired me to create an application that would simplify this process, making it easier for users to track their workouts and progress.
+### Domain Model Hierarchy
+The core business logic is structured using a strict relational ownership hierarchy:
+* **Logbook:** Manages the collective timeline of training blocks.
+* **WorkoutSession:** Represents a single calendar day's routine, implementing defensive copying techniques on constructors and getters to prevent reference aliasing.
+* **Exercise:** Holds individual performance metrics (weight metrics in kilograms, sets, reps) and handles string capitalization cleaning automatically.
 
-## User Stories
+### Implemented Design Patterns
+* **Singleton Design Pattern:** Implemented globally via `EventLog` to maintain a single, universally accessible system telemetry engine tracking user modifications and structural states.
+* **Composite UI Structure:** Separates views cleanly using specialized Swing components (e.g., custom `ImagePanel` rendering engines and modal `JDialog` managers).
 
-- As a user, I want to be able to add and remove an exercise to my workout log
-- As a user, I want to be able to delete my workout log if I no longer wish to track it 
-- As a user, I want to be able to view all exercises and my workout log to track my progress
-- As a user, I want to be able to specify the exercise type, weight lifted, and number of sets and reps
-- As a user, I want to be able to update log information to accurately correct if a user put the wrong value
-- As a user, I want to be able to filter my workout log by date or exercise type to analyze my progrss more easily
-- As a user, I want to be able to save my workout log to a file and name the file
-- As a user, I want to be able to load my workout log from a file by entering the file name
+---
+
+## 💾 JSON Data Format Example
+
+The application stores data structured locally inside `./data/fitness_log.json` adhering to the following structure:
+
+```json
+[
+  {
+    "date": "2026/06/13",
+    "exercises": [
+      {
+        "exercise name": "Bench press",
+        "muscle Type": "CHEST",
+        "weight": 100,
+        "number of Sets": 10,
+        "number of Repetitions": 3
+      }
+    ]
+  }
+]
